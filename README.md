@@ -1,1 +1,34 @@
-This is Voronoise
+**VORONOISE** is an embedded musical instrument geared towards group improvisation. A VORONOISE set is comprised of 6 plastic cubes with 5cm long edges and a Voronoi design. Each cube can play the sound of 8 different instruments, with 2 modes of interaction (4 modes 1 + 4 modes 2). The first mode involves hitting the cube against a flat surface or your hand and emits a “staccato” note. Its pitch depends on the face hit, with a pentatonic scale being mapped. The second mode depends on the stationary position of the cube. When resting on one of its faces it will constantly emit a note at the corresponding pitch, while if it rests on an edge, it will remain silent. You can change between modes by swiftly rotating your wrist making a full circle while holding the cube.
+
+###ENCLOSURE
+The plastic enclosure was made by 3D printing using white PLA. The outside is smooth and the Voronoi pattern is obtained using different thicknesses. It provides mechanical strength while allowing light from the LEDs to shine through the thin areas of the pattern. The faces are joined using a hinge system, using a raw PLA filament as a joint. One of the faces is only joint permanently by one side, while the opposite has a removable filament so it can be opened. This way you can access the hardware and charge the battery. The two faces to the sides of the one that can be open (that are not attached to it) have a groove to hold the PCB. For the PCB to fit, the corners must be slightly filed until they don’t hit the edges hinges.
+The 3D models are in the “**Enclosure**” folder.
+
+###PCB
+The PCB has 8 LEDs (Adafruit 1655), an audio amplifier IC (STMicroelectronics TS4990IST), a battery (500mAh. Not soldered to the board, can be changed), a small speaker (PUI Audio AS02404PO), an IMU (MPU-6500) and a microprocessor (XIAO ESP32C6). The latter was chosen due to its small size, integrated antenna and communication capabilities (ESP-NOW, BLE, WiFi, Zigbee). There are 2 separate circuits for audio amplification (the IC and a transistor) that are not intended to be used simultaneously. The preferred option is the IC. Simply do not the 0ohm resistor between the transistor and the audio output (or do not solder the transistor and related components).
+The cube can be turned on or off using a switch. When on, if it is connected through USB, it will charge the battery (a red LED on the microprocessor will blink). While connected it will still work even if the switch is turned on, but it will not charge the battery. For the BOM and the connections diagram, check the Altium project.
+The PCB project is in the “**PCB**” folder.
+
+###CUBES SOFTWARE
+The code to be loaded onto the cubes’ microprocessor is in the “**Cubes**” folder.
+Please make sure you can load code to an ESP32C6 using platformIO. If the board is not recognized follow the instructions in the seeed studio wiki for this model or in the post by the user “sivar2311” in https://community.platformio.org/t/how-to-flash-xiao-seeed-esp32-c6/44742/2.
+As this is a university (ETSII UPM) project and the current system allows for expansion and new uses as a portable, intuitive, interconnected MIDI interface, a brief overview of the code is due. 
+The main.cpp file contains the basic functioning of the cube. It makes use of FreeRTOS. It is important to change threshold_modo_mantener and threshold_modo_golpe depending on which how many modes are there of each type (currently is 4 and 8, as there are 4 instruments of each mode). It is essential to change the list of Mac addresses depending on your microprocessors. The 7th one is for a XIAO ESP32C3 (not in a cube) connected to a laptop that receives events from the 6 cubes and sends the corresponding MIDI commands.
+VoroComs.cpp contains the functions and structures needed to send messages between the cubes and the controller. The ESP-NOW protocol is used, allowing for fast, low power communication in a mesh. The code is largely based on the Random Nerd Tutorials project in https://randomnerdtutorials.com/esp-now-two-way-communication-esp32/.
+VoroConfig.h contains important definitions common across all private libraries.
+VoroIMU.cpp contains the functions needed to read data from the IMU (largely based on the I2Cdevlib-MPU6050 library examples) and to calculate its orientation and whether an action (hit or rotation) was performed. It is commented to show what parameters can be changed to adjust sensibility. The Offset_Calibrados list should be changed to the parameters corresponding to your IMUs (in same order as the MACs) using the code in the I2Cdevlib-MPU6050 library MPU_ZERO example. The SerialPlot app (https://hackaday.io/project/5334-serialplot-realtime-plotting-software) is very useful to see what the IMU is receiving.
+VoroLED.cpp contains the functions needed to control the LEDs and the logic for the different actions. When hit, a cube should light up for a brief moment with its color depending on the face hit. When in the stationary mode, it must be permanently lit up while it plays a sound. In this mode it will also influence the color of the other cubes. If a different cube is hit, this cube will also light up for a brief moment in a theater-marquee-style chasing lights fashion.
+VoroSound.cpp allows sound to be played directly through the in-built speaker. It is currently very basic and should be expanded into playing different types of waves sounds, behaving as a sort of synthesizer.
+
+###MIDI CONTROL SOFTWARE
+For VORONOISE to work we need a 7th microprocessor (this time a ESP32C3, although the code can be easily adapted for a C6 changing the platformio.ini) to communicate with a laptop. The C3 doesn’t have an integrated antenna so one has to be plugged.
+The code to be loaded onto the cubes’ microprocessor is in the “**MIDI_Control**” folder. 
+It keeps track of the state of each cube and maps each face to a MIDI note. The current mapping is an A minor pentatonic. Depending on the instrument, a different mapping can be added (like with drums). It also sends the MIDI commands through serial to the laptop.
+
+###MIDI SETUP (LAPTOP)
+First, you must load the code into all the cubes and turn them off.
+Secondly, load the load into the controller (the C3) and leave it connected to the laptop.
+Then open Hairless MIDI, set “Serial port” as the one the controller is connected, make sure “Serial<->MIDI Bridge On” is checked and set “MIDI Out” to the virtual MIDI port of your choice. We used LoopBe Internal MIDI (loopbe1). Make sure the internal midi port is not muted.
+Now, turn on all the cubes, and once they all shine a rainbow pattern and emit a beep, you can use them.
+To process the sounds, you need a DAW or a standalone virtual instrument that can accept MIDI. We used REAPER.
+Make sure your virtual MIDI port is enabled as an input MIDI Device. Then set the channels (by default up to 8) to the corresponding instruments.
